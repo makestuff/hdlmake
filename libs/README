@@ -1,0 +1,5 @@
+-------------------------------- HDL LIBRARIES ---------------------------------
+
+HDL libraries come with functional tests, and will run easily on a simulator.
+Libraries may contain vendor IP-blocks provided they're built conditionally
+using ${platform} variables in hdlmake.cfg.

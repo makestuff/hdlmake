@@ -1,0 +1,10 @@
+------------------------------- HDL APPLICATIONS -------------------------------
+
+Applications typically contain one or more templates, each of which contain one
+or more platform specifications. The platform specifies the actual FPGA part to
+be used, and the template specifies the pin assignments and the top-level HDL.
+
+In addition to the template & platform specs, the actual application is a block
+instantiated by the top-level HDL. In VHDL this is specified by a separate
+harness.vhdl file, whereas in Verilog the application module must merely have
+the correct name.
