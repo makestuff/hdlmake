@@ -22,6 +22,9 @@ import shutil
 import glob
 import re
 import filecmp
+import urllib2
+import tarfile
+
 
 topDir = os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))).replace("\\", "/")
 argList = 0
@@ -31,6 +34,21 @@ ignoreSet = set(["2036"])  # The set of xst warnings which should be ignored alt
 # Exception type
 class HDLException(Exception):
     pass
+
+# Get the named GitHub repo
+def getRepo(meta, proj):
+    cwd = os.getcwd()
+    if ( not os.path.exists(meta) ):
+        mkdir(meta)
+    os.chdir(meta)
+    
+    if ( not os.path.exists(proj) ):
+        response = urllib2.urlopen("https://github.com/" + meta + "/" + proj + "/archive/master.tar.gz")
+        tar = tarfile.open(mode="r|gz", fileobj=response.fp)
+        tar.extractall()
+        tar.close()
+        os.rename(proj + "-master", proj)
+    os.chdir(cwd)
 
 # Make the directory if it doesn't exist
 def mkdir(path):
@@ -633,12 +651,16 @@ if __name__ == "__main__":
     parser.add_argument('-v', action="store", nargs=1, metavar="<x|a>", help="validate with either Xilinx or Altera")
     parser.add_argument('-w', action="store_true", default=False, help="display the simulation waves")
     parser.add_argument('-i', action="store", nargs=1, metavar="<subdir>", help="copy files locally in preparation for an IDE build")
+    parser.add_argument('-g', action="store", nargs=1, metavar="<meta/proj>", help="fetch the specified GitHub repo")
     argList = parser.parse_args()
     try:
         if ( argList.c ):
             doClean()
         elif ( argList.z ):
             doZero()
+        elif ( argList.g ):
+            (meta, proj) = argList.g[0].split("/")
+            getRepo(meta, proj)
         elif ( argList.x ):
             xilinxBlock(argList.x[0])
         elif ( argList.a ):
