@@ -43,7 +43,9 @@ def getRepo(meta, proj):
     os.chdir(meta)
     
     if ( not os.path.exists(proj) ):
-        response = urllib2.urlopen("https://github.com/" + meta + "/" + proj + "/archive/master.tar.gz")
+        url = "https://github.com/" + meta + "/" + proj + "/archive/master.tar.gz"
+        print "Fetching " + url
+        response = urllib2.urlopen(url)
         tar = tarfile.open(mode="r|gz", fileobj=response.fp)
         tar.extractall()
         tar.close()
@@ -109,6 +111,12 @@ def addHdl(hdlSet, baseDir, hdl, varMap):
         # This is a top-level library import
         baseDir = topDir + "/libs/" + hdl[2:]
         baseDir = varReplace(baseDir, varMap)
+        if ( not os.path.exists(baseDir) ):
+            cwd = os.getcwd()
+            os.chdir(topDir + "/libs")
+            dirs = hdl[2:].split("/")
+            getRepo(dirs[0], dirs[1])
+            os.chdir(cwd)
         addLibrary(hdlSet, baseDir, varMap)
     else:
         # It's a relative path; make it absolute
