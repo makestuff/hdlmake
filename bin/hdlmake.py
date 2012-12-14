@@ -634,7 +634,7 @@ def doZero():
             print "  " + i + " *"
         else:
             print "  " + i
-    yn = raw_input('\nThis operation will erase everything apart from *.batch and\nhdlmake.cfg. Are you sure you want to proceed? ')
+    yn = "Y" if argList.f else raw_input('\nThis operation will erase everything apart from *.batch and\nhdlmake.cfg. Are you sure you want to proceed? ')
     if ( yn.upper() == 'Y' ):
         files = glob.glob("*")
         for i in files:
@@ -660,6 +660,7 @@ if __name__ == "__main__":
     parser.add_argument('-w', action="store_true", default=False, help="display the simulation waves")
     parser.add_argument('-i', action="store", nargs=1, metavar="<subdir>", help="copy files locally in preparation for an IDE build")
     parser.add_argument('-g', action="store", nargs=1, metavar="<meta/proj>", help="fetch the specified GitHub repo")
+    parser.add_argument('-f', action="store_true", default=False, help="avoid confirmation when zeroing: DANGEROUS")
     argList = parser.parse_args()
     try:
         if ( argList.c ):
