@@ -534,7 +534,7 @@ def topBuild():
         foreachTestbench(topBuild)
         print "[Finished testing]"
         template = argList.t[0] if argList.t else None
-        board = argList.p[0] if argList.p else None
+        board = argList.b[0] if argList.b else None
 
         # Load the hdlmake.cfg file from the current directory
         if ( template == None ):
