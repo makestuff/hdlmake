@@ -25,7 +25,6 @@ import filecmp
 import urllib2
 import tarfile
 
-
 topDir = os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))).replace("\\", "/")
 argList = 0
 warnSet = set(["647"])     # The set of xst warnings which should be treated as warnings
@@ -167,16 +166,16 @@ def getHdls():
     return (appHdls[0], sorted(set(allHdls)))
 
 # Build the current directory
-def appBuild(template, platform):
+def appBuild(template, board):
     # Load the app hdlmake.cfg & template hdlmake.cfg
-    varMap = {"platform": platform}
+    varMap = {"board": board}
     (appTop, appHdls, appTree) = getDependencies(varMap)
     (templateTop, templateHdls, templateTree) = getDependencies(varMap, template)
 
-    # Load platform.cfg
-    platformDir = os.path.dirname(template) + "/platforms/" + platform
-    platformTree = yaml.load(file(platformDir + "/platform.cfg"), yaml.BaseLoader)
-    vendor = platformTree["vendor"]
+    # Load board.cfg
+    boardDir = os.path.dirname(template) + "/boards/" + board
+    boardTree = yaml.load(file(boardDir + "/board.cfg"), yaml.BaseLoader)
+    vendor = boardTree["vendor"]
     
     # Get the deduplicated list of app & template HDL files
     appHdls.extend(templateHdls)
@@ -196,44 +195,44 @@ def appBuild(template, platform):
             ngcList = glob.glob("*.ngc")
             for i in ngcList:
                 shutil.copy(i, subdir)
-            shutil.copy(platformDir + "/platform.ucf", subdir)
+            shutil.copy(boardDir + "/board.ucf", subdir)
         return
 
     # Proceed with the build
     if ( vendor == "xilinx" ):
-        # Get Xilinx-specific settings from platform.cfg
-        mapFlags = platformTree["map_flags"]
-        parFlags = platformTree["par_flags"]
+        # Get Xilinx-specific settings from board.cfg
+        mapFlags = boardTree["map_flags"]
+        parFlags = boardTree["par_flags"]
         if ( mapFlags == None ):
             mapFlags = ""
         if ( parFlags == None ):
             parFlags = ""
-        fpga = platformTree["fpga"]
+        fpga = boardTree["fpga"]
         
         # Create list of HDLs
         f = open("top_level.prj", "w")
         for i in uniqueHdls:
             if ( i.endswith(".vhdl") or i.endswith(".vhd") ):
-                f.write("vhdl work \"" + i.replace("${platform}", platform) + "\"\n")
+                f.write("vhdl work \"" + i.replace("${board}", board) + "\"\n")
             elif ( i.endswith(".v") ):
-                f.write("verilog work \"" + i.replace("${platform}", platform) + "\"\n")
+                f.write("verilog work \"" + i.replace("${board}", board) + "\"\n")
         f.close()
         
         # Run the build steps
         mkdir("xst/projnav.tmp")
-        if ( os.system("xst -intstyle ise -ifn " + platformDir + "/platform.xst -ofn top_level.syr") ):
+        if ( os.system("xst -intstyle ise -ifn " + boardDir + "/board.xst -ofn top_level.syr") ):
             raise HDLException("The xst process failed")
-        if ( os.system("ngdbuild -intstyle ise -dd _ngo -nt timestamp -uc " + platformDir + "/platform.ucf -p " + fpga + " top_level.ngc top_level.ngd") ):
+        if ( os.system("ngdbuild -intstyle ise -dd _ngo -nt timestamp -uc " + boardDir + "/board.ucf -p " + fpga + " top_level.ngc top_level.ngd") ):
             raise HDLException("The ngdbuild process failed")
         if ( os.system("map -intstyle ise -p " + fpga + " " + mapFlags + " -ir off -pr off -c 100 -w -o top_level_map.ncd top_level.ngd top_level.pcf") ):
             raise HDLException("The map process failed")
         if ( os.system("par -w -intstyle ise -ol high " + parFlags + " top_level_map.ncd top_level.ncd top_level.pcf") ):
             raise HDLException("The par process failed")
-        if ( os.system("bitgen -intstyle ise -f " + platformDir + "/platform.ut top_level.ncd") ):
+        if ( os.system("bitgen -intstyle ise -f " + boardDir + "/board.ut top_level.ncd") ):
             raise HDLException("The bitgen process failed")
         
-        # Generate iMPACT batch script from platform's template file
-        f = open(platformDir + "/platform.batch", "r")
+        # Generate iMPACT batch script from board's template file
+        f = open(boardDir + "/board.batch", "r")
         batch = f.read()
         f.close()
 
@@ -256,9 +255,9 @@ def appBuild(template, platform):
             raise HDLException("The impact process failed")
         os.remove("temp.batch")
     elif ( vendor == "altera" ):
-        # Copy platform.qsf & platform.sdc over
-        shutil.copyfile(platformDir + "/platform.qsf", "top_level.qsf")
-        shutil.copyfile(platformDir + "/platform.sdc", "top_level.sdc")
+        # Copy board.qsf & board.sdc over
+        shutil.copyfile(boardDir + "/board.qsf", "top_level.qsf")
+        shutil.copyfile(boardDir + "/board.sdc", "top_level.sdc")
         
         # Append list of HDLs
         f = open("top_level.qsf", "a")
@@ -296,7 +295,7 @@ def isBuildNeeded(target, hdls):
 # Validate the syntax of the code in the current directory by running only the synthesis step
 def doValidate(tool):
     # Load the hdlmake.cfg file from the current directory
-    varMap = {"platform": "sim"}
+    varMap = {"board": "sim"}
     (topHdl, uniqueHdls, tree) = getDependencies(varMap)
 
     print "Unique HDLs:"
@@ -466,7 +465,7 @@ def topBuild():
     if ( dirname[:3] == "tb_" ):
         # We're building in a test directory
         print "[Testbench: " + dirname + "]"
-        varMap = {"platform": "sim"}
+        varMap = {"board": "sim"}
         (tbTop, tbHdls, tbTree) = getDependencies(varMap)
         tbTopLevel = os.path.splitext(os.path.basename(tbTop))[0]
         cwd = os.getcwd()
@@ -535,19 +534,19 @@ def topBuild():
         foreachTestbench(topBuild)
         print "[Finished testing]"
         template = argList.t[0] if argList.t else None
-        platform = argList.p[0] if argList.p else None
+        board = argList.p[0] if argList.p else None
 
         # Load the hdlmake.cfg file from the current directory
         if ( template == None ):
-            if ( platform != None ):
-                raise HDLException("I have a platform but no template")
+            if ( board != None ):
+                raise HDLException("I have a board but no template")
             # else
             #   do nothing
         else:
-            if ( platform == None ):
-                raise HDLException("I have a template but no platform")
+            if ( board == None ):
+                raise HDLException("I have a template but no board")
             else:
-                appBuild(template, platform)
+                appBuild(template, board)
 
 def xilinxBlock(subdir):
     if ( os.path.exists(subdir) ):
@@ -652,7 +651,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Build and test HDL code.')
     parser.add_argument('-c', action="store_true", default=False, help="clean the current directory and exit")
     parser.add_argument('-t', action="store", nargs=1, metavar="<template>", help="the template to build with")
-    parser.add_argument('-p', action="store", nargs=1, metavar="<platform>", help="the platform to build for")
+    parser.add_argument('-b', action="store", nargs=1, metavar="<board>", help="the board to build for")
     parser.add_argument('-a', action="store", nargs=1, metavar="<subdir>", help="make the named subdir and launch qmegawiz")
     parser.add_argument('-x', action="store", nargs=1, metavar="<subdir>", help="make the named subdir and launch coregen")
     parser.add_argument('-z', action="store_true", default=False, help="clean the current coregen/megawiz directory and exit")
