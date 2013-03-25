@@ -295,7 +295,7 @@ def doValidate(tool):
     # Load the hdlmake.cfg file from the current directory
     varMap = {"board": "sim"}
     tree = readHdlMake(None)
-    (topHdl, uniqueHdls, tree) = getDependencies(tree, None, varMap)
+    (topHdl, uniqueHdls) = getDependencies(tree, None, varMap)
 
     print "Unique HDLs:"
     for i in uniqueHdls:
