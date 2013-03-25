@@ -141,7 +141,7 @@ def addHdl(hdlSet, baseDir, hdl, varMap):
 
 # Called by appBuild(), doValidate() and topBuild()
 #
-def getDependencies(varMap, baseDir = None):
+def getDependencies(baseDir, varMap):
     # Construct the real path of the hdlmake.cfg file
     hmFile = "hdlmake.cfg" if baseDir == None else baseDir + "/hdlmake.cfg"
 
@@ -166,8 +166,8 @@ def getDependencies(varMap, baseDir = None):
 def appBuild(template, board):
     # Load the app hdlmake.cfg & template hdlmake.cfg
     varMap = {"board": board}
-    (appTop, appHdls, appTree) = getDependencies(varMap)
-    (templateTop, templateHdls, templateTree) = getDependencies(varMap, template)
+    (appTop, appHdls, appTree) = getDependencies(None, varMap)
+    (templateTop, templateHdls, templateTree) = getDependencies(template, varMap)
 
     # Load board.cfg
     boardDir = os.path.dirname(template) + "/boards/" + board
@@ -293,7 +293,7 @@ def isBuildNeeded(target, hdls):
 def doValidate(tool):
     # Load the hdlmake.cfg file from the current directory
     varMap = {"board": "sim"}
-    (topHdl, uniqueHdls, tree) = getDependencies(varMap)
+    (topHdl, uniqueHdls, tree) = getDependencies(None, varMap)
 
     print "Unique HDLs:"
     for i in uniqueHdls:
@@ -463,13 +463,13 @@ def topBuild():
         # We're building in a test directory
         print "[Testbench: " + dirname + "]"
         varMap = {"board": "sim"}
-        (tbTop, tbHdls, tbTree) = getDependencies(varMap)
+        (tbTop, tbHdls, tbTree) = getDependencies(None, varMap)
         tbTopLevel = os.path.splitext(os.path.basename(tbTop))[0]
         cwd = os.getcwd()
         os.chdir("..")
         if ( argList.v ):
             doValidate(argList.v[0])
-        (appTop, appHdls, appTree) = getDependencies(varMap)
+        (appTop, appHdls, appTree) = getDependencies(None, varMap)
         tbHdls.extend([i if i.startswith(topDir) else "../" + i for i in appHdls])
         os.chdir(cwd)
         if ( isBuildNeeded("simulation/TIMESTAMP", tbHdls) ):
