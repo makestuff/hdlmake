@@ -31,10 +31,12 @@ warnSet = set(["647"])     # The set of xst warnings which should be treated as 
 ignoreSet = set(["2036"])  # The set of xst warnings which should be ignored altogether
 
 # Exception type
+#
 class HDLException(Exception):
     pass
 
-# Get the named GitHub repo
+# Fetch the named GitHub repo using HTTP
+#
 def getRepo(meta, proj):
     cwd = os.getcwd()
     if ( not os.path.exists(meta) ):
@@ -52,11 +54,13 @@ def getRepo(meta, proj):
     os.chdir(cwd)
 
 # Make the directory if it doesn't exist
+#
 def mkdir(path):
     if ( not os.path.exists(path) ):
         os.makedirs(path)
 
 # Find the name of the top-level module in the given HDL file
+#
 def findTop(hdl):
     file = ""
     baseName = os.path.basename(hdl).lower()
@@ -74,17 +78,22 @@ def findTop(hdl):
         return topName
 
 # Find out if one or more of the specified files is missing from the specified directory
+#
 def isSomethingMissing(directory, fileList):
     for thisFile in fileList:
         if ( thisFile[0] != '+' and thisFile[1] != '/' and not os.path.exists(directory + "/" + thisFile ) ):
             return True
     return False
 
+# Replace any variables in "path" with their value from "varMap"
+#
 def varReplace(path, varMap):
     for key in varMap.keys():
         path = path.replace("${" + key + "}", varMap[key])
     return path
 
+# Called by addHdl()
+#
 def addLibrary(hdlSet, baseDir, varMap):
     tree = yaml.load(file(baseDir + "/hdlmake.cfg"), yaml.BaseLoader)
     hdls = tree["hdls"]
@@ -104,7 +113,8 @@ def addLibrary(hdlSet, baseDir, varMap):
     for ngc in ngcs:
         shutil.copyfile(baseDir + "/" + ngc, ngc)
 
-
+# Called by getDependencies() and addLibrary()
+#
 def addHdl(hdlSet, baseDir, hdl, varMap):
     if ( hdl[0] == '+' and hdl[1] == '/' ):
         # This is a top-level library import
@@ -129,13 +139,15 @@ def addHdl(hdlSet, baseDir, hdl, varMap):
             # This is just an HDL file
             hdlSet.add(hdl)
 
+# Called by appBuild(), doValidate() and topBuild()
+#
 def getDependencies(varMap, baseDir = None):
     # Construct the real path of the hdlmake.cfg file
     hmFile = "hdlmake.cfg" if baseDir == None else baseDir + "/hdlmake.cfg"
 
     # Check it exists:
     if ( not os.path.exists(hmFile) ):
-        return (None, [], None)
+        raise HDLException(hmFile + " not found")
 
     # Load it:
     tree = yaml.load(file(hmFile, "r"), yaml.BaseLoader)
@@ -149,23 +161,8 @@ def getDependencies(varMap, baseDir = None):
         addHdl(allHdls, baseDir, hdl, varMap)
     return (dirHdls[0], sorted(allHdls), tree)
 
-def getHdls():
-    # Load the hdlmake.cfg file from the current directory
-    tree = yaml.load(file('hdlmake.cfg', 'r'), yaml.BaseLoader)
-
-    # Get the application's own HDLs
-    appHdls = tree["hdls"]
-
-    # Get the deduplicated list of HDL files, recursively including library HDLs
-    allHdls = []
-    for hdl in appHdls:
-        if ( hdl[0] == '+' and hdl[1] == '/' ):
-            appendLib(allHdls, topDir + "/libs", hdl[2:])
-        else:
-            allHdls.append(hdl)
-    return (appHdls[0], sorted(set(allHdls)))
-
-# Build the current directory
+# Build the current directory - called by topBuild()
+#
 def appBuild(template, board):
     # Load the app hdlmake.cfg & template hdlmake.cfg
     varMap = {"board": board}
