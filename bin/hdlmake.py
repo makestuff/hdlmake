@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2009-2012 Chris McClelland
+# Copyright (C) 2012-2013 Chris McClelland
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published by
@@ -647,7 +647,7 @@ def doZero():
 
 # Main function if we're not loaded as a module
 if __name__ == "__main__":
-    print "MakeStuff HDL Builder (C) 2012 Chris McClelland\n"
+    print "MakeStuff HDL Builder (C) 2012-2013 Chris McClelland\n"
     parser = argparse.ArgumentParser(description='Build and test HDL code.')
     parser.add_argument('-c', action="store_true", default=False, help="clean the current directory and exit")
     parser.add_argument('-t', action="store", nargs=1, metavar="<template>", help="the template to build with")
