@@ -454,7 +454,7 @@ def doClean():
     for i in ["results.sim"]:
         if ( os.path.exists(i) ):
             os.remove(i)
-    for i in ["xst", "db", "incremental_db", "_ngo", "_xmsgs", "auto_project_xdb", "iseconfig", "xlnx_auto_0_xdb", "simulation", "synthesis"]:
+    for i in ["xst", "db", "incremental_db", "_ngo", "_xmsgs", "auto_project_xdb", "iseconfig", "xlnx_auto_0_xdb", "simulation", "synthesis", "results"]:
         if ( os.path.exists(i) ):
             shutil.rmtree(i)
     foreachTestbench(doClean)
@@ -483,6 +483,8 @@ def topBuild():
             mkdir("simulation")
             open("simulation/TIMESTAMP", "a").close()
             os.utime("simulation/TIMESTAMP", (0, 0))  # set last-mod time to 1970
+            if ( os.path.exists("stimulus") ):
+                mkdir("results")
             if ( os.system("ghdl -i --ieee=synopsys --std=93c --vital-checks --warn-binding --warn-reserved --warn-library --warn-vital-generic --warn-delayed-checks --warn-body --warn-specs --warn-unused --warn-error --workdir=simulation --work=work " + " ".join(tbHdls)) ):
                 raise HDLException("The ghdl first stage build failed")
             if ( os.system("ghdl -m --ieee=synopsys --std=93c --vital-checks --warn-binding --warn-reserved --warn-library --warn-vital-generic --warn-delayed-checks --warn-body --warn-specs --warn-unused --warn-error --workdir=simulation --work=work " + tbTopLevel) ):
@@ -490,9 +492,21 @@ def topBuild():
             shutil.move(tbTopLevel, "simulation")
             if ( os.system("./simulation/" + tbTopLevel + " --stop-time=41280ns --wave=simulation/" + tbTopLevel + ".ghw") ):
                 raise HDLException("The ghdl simulation failed")
-            if ( os.path.exists("expected.sim") and os.path.exists("results.sim") ):
-                if ( not filecmp.cmp("expected.sim", "results.sim") ):
-                    raise HDLException("The simulation produced unexpected results")
+            if ( os.path.exists("expected.sim") ):
+                if ( os.path.exists("results.sim") ):
+                    if ( not filecmp.cmp("expected.sim", "results.sim") ):
+                        raise HDLException("The simulation produced unexpected results")
+                else:
+                    raise HDLException("The simulation did not produce results")
+            if ( os.path.exists("expected") ):
+                files = glob.glob("expected/*.sim")
+                for expectedFile in files:
+                    resultFile = expectedFile.replace("expected", "results")
+                    if ( os.path.exists(resultFile) ):
+                        if ( not filecmp.cmp(expectedFile, resultFile) ):
+                            raise HDLException("The simulation produced unexpected results: %s and %s differ" % (expectedFile, resultFile))
+                    else:
+                        raise HDLException("The simulation did not produce results: %s missing" % resultFile)
             os.utime("simulation/TIMESTAMP", None)  # set last-mod time to now
         else:
             print "HDL simulation: Nothing to do"
