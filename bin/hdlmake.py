@@ -141,12 +141,15 @@ def addHdl(hdlSet, baseDir, hdl, varMap):
 
 # Read the hdlmake.cfg from the specified directory
 #
-def readHdlMake(baseDir):
+def readHdlMake(baseDir, isRequired = True):
     # Construct the real path of the hdlmake.cfg file
     hmFile = "hdlmake.cfg" if baseDir == None else baseDir + "/hdlmake.cfg"
-    if ( not os.path.exists(hmFile) ):
+    if ( os.path.exists(hmFile) ):
+        return yaml.load(file(hmFile, "r"), yaml.BaseLoader)
+    elif ( isRequired ):
         raise HDLException(hmFile + " not found")
-    return yaml.load(file(hmFile, "r"), yaml.BaseLoader)
+    else:
+        return None
 
 # Called by appBuild(), doValidate() and topBuild()
 #
@@ -167,16 +170,19 @@ def appBuild(template, board):
     varMap = {"board": board}
     appTree = readHdlMake(None)
     (appTop, appHdls) = getDependencies(appTree, None, varMap)
-    templateTree = readHdlMake(template)
-    (templateTop, templateHdls) = getDependencies(templateTree, template, varMap)
-
+    templateTree = readHdlMake(template, False)
+    if ( templateTree ):
+        (templateTop, templateHdls) = getDependencies(templateTree, template, varMap)
+        appHdls.extend(templateHdls)
+    
     # Load board.cfg
-    boardDir = os.path.dirname(template) + "/boards/" + board
+    boardDir = template + "/boards/" + board
+    if ( not os.path.exists(boardDir) ):
+        boardDir = os.path.dirname(template) + "/boards/" + board
     boardTree = yaml.load(file(boardDir + "/board.cfg"), yaml.BaseLoader)
     vendor = boardTree["vendor"]
     
     # Get the deduplicated list of app & template HDL files
-    appHdls.extend(templateHdls)
     uniqueHdls = sorted(set(appHdls))
 
     print "Unique HDLs:"
