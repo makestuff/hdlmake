@@ -204,15 +204,6 @@ def appBuild(template, board):
 
     # Proceed with the build
     if ( vendor == "xilinx" ):
-        # Get Xilinx-specific settings from board.cfg
-        mapFlags = boardTree["map_flags"]
-        parFlags = boardTree["par_flags"]
-        if ( mapFlags == None ):
-            mapFlags = ""
-        if ( parFlags == None ):
-            parFlags = ""
-        fpga = boardTree["fpga"]
-        
         # Create list of HDLs
         f = open("top_level.prj", "w")
         for i in uniqueHdls:
@@ -221,20 +212,45 @@ def appBuild(template, board):
             elif ( i.endswith(".v") ):
                 f.write("verilog work \"" + i.replace("${board}", board) + "\"\n")
         f.close()
-        
-        # Run the build steps
+
+        # Synthesis
         mkdir("xst/projnav.tmp")
         if ( os.system("xst -intstyle ise -ifn " + boardDir + "/board.xst -ofn top_level.syr") ):
             raise HDLException("The xst process failed")
-        if ( os.system("ngdbuild -intstyle ise -dd _ngo -nt timestamp -uc " + boardDir + "/board.ucf -p " + fpga + " top_level.ngc top_level.ngd") ):
-            raise HDLException("The ngdbuild process failed")
-        if ( os.system("map -intstyle ise -p " + fpga + " " + mapFlags + " -ir off -pr off -c 100 -w -o top_level_map.ncd top_level.ngd top_level.pcf") ):
-            raise HDLException("The map process failed")
-        if ( os.system("par -w -intstyle ise -ol high " + parFlags + " top_level_map.ncd top_level.ncd top_level.pcf") ):
-            raise HDLException("The par process failed")
-        if ( os.system("bitgen -intstyle ise -f " + boardDir + "/board.ut top_level.ncd") ):
-            raise HDLException("The bitgen process failed")
-        
+
+        # Get Xilinx-specific settings from board.cfg
+        if ( "fpga" in boardTree ):
+            fpga = boardTree["fpga"]
+            mapFlags = boardTree["map_flags"]
+            parFlags = boardTree["par_flags"]
+            if ( mapFlags == None ):
+                mapFlags = ""
+            if ( parFlags == None ):
+                parFlags = ""
+
+            # Run the FPGA build steps
+            if ( os.system("ngdbuild -intstyle ise -dd _ngo -nt timestamp -uc " + boardDir + "/board.ucf -p " + fpga + " top_level.ngc top_level.ngd") ):
+                raise HDLException("The ngdbuild process failed")
+            if ( os.system("map -intstyle ise -p " + fpga + " " + mapFlags + " -ir off -pr off -c 100 -w -o top_level_map.ncd top_level.ngd top_level.pcf") ):
+                raise HDLException("The map process failed")
+            if ( os.system("par -w -intstyle ise -ol high " + parFlags + " top_level_map.ncd top_level.ncd top_level.pcf") ):
+                raise HDLException("The par process failed")
+            if ( os.system("bitgen -intstyle ise -f " + boardDir + "/board.ut top_level.ncd") ):
+                raise HDLException("The bitgen process failed")
+        elif ( "cpld_ngd" in boardTree and "cpld_fit" in boardTree ):
+            cpld_ngd = boardTree["cpld_ngd"]
+            cpld_fit = boardTree["cpld_fit"]
+
+            # Run the CPLD build steps
+            if ( os.system("ngdbuild -intstyle ise -dd _ngo -uc " + boardDir + "/board.ucf -p " + cpld_ngd + " top_level.ngc top_level.ngd") ):
+                raise HDLException("The ngdbuild process failed")
+            if ( os.system("cpldfit -intstyle ise -p " + cpld_fit + " -ofmt vhdl -optimize speed -htmlrpt -loc on -slew fast -init low -inputs 54 -pterms 25 -unused float -power std -terminate keeper top_level.ngd") ):
+                raise HDLException("The cpldfit process failed")
+            if ( os.system("hprep6 -s IEEE1149 -n top_level -i top_level") ):
+                raise HDLException("The hprep6 process failed")
+        else:
+            raise HDLException("The " + boardDir + "/board.cfg describes something which is not recognisable as a Xilinx FPGA or CPLD")
+
         # Generate iMPACT batch script from board's template file
         f = open(boardDir + "/board.batch", "r")
         batch = f.read()
@@ -450,17 +466,17 @@ def foreachTestbench(func):
 # Clean the directory
 def doClean():
     for i in ["*.bak", "*.bgn", "*.bit", "*.bld", "*.cmd", "*.cmd_log", "*.csv", "*.csvf",
-              "*.done", "*.dpf", "*.drc", "*.edif", "*.gise", "*.html", "*.ise", "*.jdi",
-              "*.log", "*.lso", "*.map", "*.mrp", "*.ncd", "*.ngc", "*.ngd", "*.ngm", "*.ngr",
-              "*.ntrc_log", "*.pad", "*.par", "*.pcf", "*.pin", "*.pof", "*.prj", "*.ptwx",
+              "*.done", "*.dpf", "*.drc", "*.edif", "*.err", "*.gise", "*.gyd", "*.html", "*.ise", "*.jdi", "*.jed",
+              "*.log", "*.lso", "*.map", "*.mfd", "*.mrp", "*.ncd", "*.ngc", "*.ngd", "*.ngm", "*.ngr",
+              "*.ntrc_log", "*.pad", "*.par", "*.pcf", "*.pin", "*.pnx", "*.pof", "*.prj", "*.ptwx",
               "*.qpf", "*.qsf", "*.rpt", "*.sdc", "*.smsg", "*.sof", "*.srf", "*.stx",
-              "*.summary", "*.svf", "*.syr", "*.twr", "*.twr", "*.twx", "*.txt", "*.unroutes",
-              "*.xml", "*.xpi", "*.xrpt", "*.xsvf", "*.xwbt"]:
+              "*.summary", "*.svf", "*.syr", "*.tspec", "*.twr", "*.twr", "*.twx", "*.txt", "*.unroutes",
+              "*.vm6", "*.xml", "*.xpi", "*.xrpt", "*.xsvf", "*.xwbt"]:
         wildcardDelete(i)
     for i in ["results.sim"]:
         if ( os.path.exists(i) ):
             os.remove(i)
-    for i in ["xst", "db", "incremental_db", "_ngo", "_xmsgs", "auto_project_xdb", "iseconfig", "xlnx_auto_0_xdb", "simulation", "synthesis", "results"]:
+    for i in ["xst", "db", "incremental_db", "_ngo", "_xmsgs", "auto_project_xdb", "iseconfig", "xlnx_auto_0_xdb", "top_level_html", "simulation", "synthesis", "results"]:
         if ( os.path.exists(i) ):
             shutil.rmtree(i)
     foreachTestbench(doClean)
