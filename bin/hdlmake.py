@@ -384,7 +384,7 @@ def doValidate(tool):
                 m = None
                 l = f.readline()
                 while ( l != "" ):
-                    m = re.search(r"^WARNING:Xst:(\d+)\s+-\s+(.*?)$", l)
+                    m = re.search(r"^WARNING:[A-Za-z]+:(\d+)\s+-\s+(.*?)$", l)
                     if ( m != None ):
                         code = m.group(1)
                         msg = m.group(2)
@@ -396,7 +396,6 @@ def doValidate(tool):
                             errMsgs += "\n  " + code + ": " + msg
                         else:
                             ignoreCount += 1
-                        l = f.readline()
                     l = f.readline()
                 f.close()
                 if ( warnCount ):
