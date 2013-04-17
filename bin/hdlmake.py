@@ -464,7 +464,7 @@ def foreachTestbench(func):
 
 # Clean the directory
 def doClean():
-    for i in ["*.bak", "*.bgn", "*.bit", "*.bld", "*.cmd", "*.cmd_log", "*.csv", "*.csvf",
+    for i in ["*.bak", "*.bgn", "*.bin", "*.bit", "*.bld", "*.cmd", "*.cmd_log", "*.csv", "*.csvf",
               "*.done", "*.dpf", "*.drc", "*.edif", "*.err", "*.gise", "*.gyd", "*.html", "*.ise", "*.jdi", "*.jed",
               "*.log", "*.lso", "*.map", "*.mfd", "*.mrp", "*.ncd", "*.ngc", "*.ngd", "*.ngm", "*.ngr",
               "*.ntrc_log", "*.pad", "*.par", "*.pcf", "*.pin", "*.pnx", "*.pof", "*.prj", "*.ptwx",
