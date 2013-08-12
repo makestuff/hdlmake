@@ -29,6 +29,7 @@ topDir = os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))).replace
 argList = 0
 warnSet = set(["647"])     # The set of xst warnings which should be treated as warnings
 ignoreSet = set(["2036"])  # The set of xst warnings which should be ignored altogether
+branch = "master"
 
 # Exception type
 #
@@ -37,20 +38,20 @@ class HDLException(Exception):
 
 # Fetch the named GitHub repo using HTTP
 #
-def getRepo(meta, proj):
+def getRepo(user, repo):
     cwd = os.getcwd()
-    if ( not os.path.exists(meta) ):
-        mkdir(meta)
-    os.chdir(meta)
+    if ( not os.path.exists(user) ):
+        mkdir(user)
+    os.chdir(user)
     
-    if ( not os.path.exists(proj) ):
-        url = "https://github.com/" + meta + "/" + proj + "/archive/master.tar.gz"
+    if ( not os.path.exists(repo) ):
+        url = "https://github.com/" + user + "/" + repo + "/archive/" + branch + ".tar.gz"
         print "Fetching " + url
         response = urllib2.urlopen(url)
         tar = tarfile.open(mode="r|gz", fileobj=response.fp)
         tar.extractall()
         tar.close()
-        os.rename(proj + "-master", proj)
+        os.rename(repo + "-" + branch, repo)
     os.chdir(cwd)
 
 # Make the directory if it doesn't exist
@@ -711,17 +712,23 @@ if __name__ == "__main__":
     parser.add_argument('-v', action="store", nargs=1, metavar="<x|a>", help="validate with either Xilinx or Altera")
     parser.add_argument('-w', action="store_true", default=False, help="display the simulation waves")
     parser.add_argument('-i', action="store", nargs=1, metavar="<subdir>", help="copy files locally in preparation for an IDE build")
-    parser.add_argument('-g', action="store", nargs=1, metavar="<meta/proj>", help="fetch the specified GitHub repo")
+    parser.add_argument('-g', action="store", nargs=1, metavar="<user/repo>", help="fetch the specified GitHub repo")
     parser.add_argument('-f', action="store_true", default=False, help="avoid confirmation when zeroing: DANGEROUS")
     argList = parser.parse_args()
+
+    brFileName = topDir + "/.branch";
+    if (os.path.exists(brFileName) ):
+        brFile = open(brFileName)
+        branch = brFile.read().strip()
+        brFile.close()
     try:
         if ( argList.c ):
             doClean()
         elif ( argList.z ):
             doZero()
         elif ( argList.g ):
-            (meta, proj) = argList.g[0].split("/")
-            getRepo(meta, proj)
+            (user, repo) = argList.g[0].split("/")
+            getRepo(user, repo)
         elif ( argList.x ):
             xilinxBlock(argList.x[0])
         elif ( argList.a ):
