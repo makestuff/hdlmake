@@ -506,12 +506,19 @@ def topBuild():
             os.utime("simulation/TIMESTAMP", (0, 0))  # set last-mod time to 1970
             if ( os.path.exists("stimulus") ):
                 mkdir("results")
-            if ( os.system("ghdl -i --ieee=synopsys --std=93c --vital-checks --warn-binding --warn-reserved --warn-library --warn-vital-generic --warn-delayed-checks --warn-body --warn-specs --warn-unused --warn-error --workdir=simulation --work=work " + " ".join(tbHdls)) ):
+            cmd = "ghdl -i --ieee=synopsys --std=93c --vital-checks --warn-binding --warn-reserved --warn-library --warn-vital-generic --warn-delayed-checks --warn-body --warn-specs --warn-unused --warn-error --workdir=simulation --work=work " + " ".join(tbHdls)
+            #print cmd
+            if ( os.system(cmd) ):
                 raise HDLException("The ghdl first stage build failed")
-            if ( os.system("ghdl -m --ieee=synopsys --std=93c --vital-checks --warn-binding --warn-reserved --warn-library --warn-vital-generic --warn-delayed-checks --warn-body --warn-specs --warn-unused --warn-error --workdir=simulation --work=work " + tbTopLevel) ):
+            cmd = "ghdl -m --ieee=synopsys --std=93c --vital-checks --warn-binding --warn-reserved --warn-library --warn-vital-generic --warn-delayed-checks --warn-body --warn-specs --warn-unused --warn-error --workdir=simulation --work=work " + tbTopLevel
+            #print cmd
+            if ( os.system(cmd) ):
                 raise HDLException("The ghdl second stage build failed")
+            print "Moving " + tbTopLevel + " to simulation directory"
             shutil.move(tbTopLevel, "simulation")
-            if ( os.system("./simulation/" + tbTopLevel + " --stop-time=41280ns --wave=simulation/" + tbTopLevel + ".ghw") ):
+            cmd = "./simulation/" + tbTopLevel + " --stop-time=41280ns --wave=simulation/" + tbTopLevel + ".ghw"
+            #print cmd
+            if ( os.system(cmd) ):
                 raise HDLException("The ghdl simulation failed")
             if ( os.path.exists("expected.sim") ):
                 if ( os.path.exists("results.sim") ):
@@ -541,8 +548,18 @@ def topBuild():
                     f.write("gtkwave::/Edit/Insert_Blank\n")
                 else:
                     f.write("gtkwave::addSignalsFromList " + i + "\n")
-            f.write("gtkwave::setZoomFactor -26\n")
-            f.write("gtkwave::setMarker 600ns\n")
+            zoomFactor = "26"
+            if ( "zoomFactor" in tbTree ):
+                zoomFactor = tbTree["zoomFactor"]
+            marker = "600ns";
+            if ( "marker" in tbTree ):
+                marker = tbTree["marker"]
+            windowStartTime = "0ns"
+            if ( "windowStartTime" in tbTree ):
+                windowStartTime = tbTree["windowStartTime"]
+            f.write("gtkwave::setZoomFactor -" + zoomFactor + "\n")
+            f.write("gtkwave::setMarker " + marker + "\n")
+            f.write("gtkwave::setWindowStartTime " + windowStartTime + "\n")
             f.write("for { set i 0 } { $i <= [ gtkwave::getVisibleNumTraces ] } { incr i } { gtkwave::setTraceHighlightFromIndex $i off }\n")
             f.write("gtkwave::setLeftJustifySigs on\n")
             if ( "sigmaps" in tbTree ):
