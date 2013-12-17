@@ -526,7 +526,10 @@ def topBuild():
                 raise HDLException("The ghdl second stage build failed")
             print "Moving " + tbTopLevel + " to simulation directory"
             shutil.move(tbTopLevel, "simulation")
-            cmd = "./simulation/" + tbTopLevel + " --stop-time=41280ns --wave=simulation/" + tbTopLevel + ".ghw"
+            stopTime = "41280ns"
+            if ( "stopTime" in tbTree ):
+                stopTime = tbTree["stopTime"]
+            cmd = "./simulation/" + tbTopLevel + " --stop-time=" + stopTime + " --wave=simulation/" + tbTopLevel + ".ghw"
             #print cmd
             if ( os.system(cmd) ):
                 raise HDLException("The ghdl simulation failed")
@@ -557,7 +560,10 @@ def topBuild():
                 if ( i == "---" ):
                     f.write("gtkwave::/Edit/Insert_Blank\n")
                 else:
-                    f.write("gtkwave::addSignalsFromList " + i + "\n")
+                    f.write(
+                        "gtkwave::addSignalsFromList " +
+                        i.replace("[", "\\[").replace("]", "\\]") +
+                        "\n")
             zoomFactor = "26"
             if ( "zoomFactor" in tbTree ):
                 zoomFactor = tbTree["zoomFactor"]
