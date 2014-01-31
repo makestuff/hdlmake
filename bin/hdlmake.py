@@ -310,6 +310,14 @@ def appBuild(template, board):
             raise HDLException("The quartus_fit process failed")
         if ( os.system("quartus_asm --read_settings_files=on --write_settings_files=off top_level -c top_level") ):
             raise HDLException("The quartus_asm process failed")
+        if ( argList.p ):
+            genRules = boardTree["genrules"] if ( "genrules" in boardTree ) else dict()
+            for batch in argList.p:
+                # Get list of prerequisite commands
+                cmdList = genRules[batch] if ( batch in genRules ) else []
+                for i in cmdList:
+                    if ( os.system(i) ):
+                        raise HDLException("The generation rule failed")
 
 # Work out whether a build is needed by comparing datestamps
 def isBuildNeeded(target, hdls):
@@ -478,7 +486,7 @@ def doClean():
               "*.done", "*.dpf", "*.drc", "*.edif", "*.err", "*.gise", "*.gyd", "*.html", "*.ise", "*.jdi", "*.jed",
               "*.log", "*.lso", "*.map", "*.mcs", "*.mfd", "*.mrp", "*.ncd", "*.ngc", "*.ngd", "*.ngm", "*.ngr",
               "*.ntrc_log", "*.pad", "*.par", "*.pcf", "*.pin", "*.pnx", "*.pof", "*.prj", "*.prm", "*.ptwx",
-              "*.qpf", "*.qsf", "*.rpt", "*.sdc", "*.smsg", "*.sof", "*.srf", "*.stx",
+              "*.qpf", "*.qsf", "*.rbf", "*.rpt", "*.sdc", "*.smsg", "*.sof", "*.srf", "*.stx",
               "*.summary", "*.svf", "*.syr", "*.tspec", "*.twr", "*.twr", "*.twx", "*.txt", "*.unroutes",
               "*.vm6", "*.xml", "*.xpi", "*.xrpt", "*.xsvf", "*.xwbt"]:
         wildcardDelete(i)
