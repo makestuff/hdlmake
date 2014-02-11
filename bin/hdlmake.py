@@ -24,6 +24,7 @@ import re
 import filecmp
 import urllib2
 import tarfile
+from io import BytesIO
 
 topDir = os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))).replace("\\", "/")
 argList = 0
@@ -48,7 +49,14 @@ def getRepo(user, repo):
         url = "https://github.com/" + user + "/" + repo + "/archive/" + branch + ".tar.gz"
         print "Fetching " + url
         response = urllib2.urlopen(url)
-        tar = tarfile.open(mode="r|gz", fileobj=response.fp)
+        tmpFile = BytesIO()
+        while ( True ):
+            chunk = response.read(16384)
+            if ( not chunk ):
+                break;
+            tmpFile.write(chunk)
+        tmpFile.seek(0)
+        tar = tarfile.open(mode="r:gz", fileobj=tmpFile)
         tar.extractall()
         tar.close()
         os.rename(repo + "-" + branch, repo)
