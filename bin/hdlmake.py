@@ -380,7 +380,7 @@ def doValidate(tool):
             f.write("-ifmt mixed\n")
             f.write("-ofn " + topLevel + "\n")
             f.write("-ofmt NGC\n")
-            f.write("-p xc6slx9-2-tqg144\n")
+            f.write("-p xc6slx45-2-fgg676\n")
             f.write("-top " + topLevel + "\n")
             f.write("-opt_mode Speed\n")
             f.write("-opt_level 1\n")
