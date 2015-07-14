@@ -24,6 +24,7 @@ import re
 import filecmp
 import urllib2
 import tarfile
+from io import BytesIO
 
 topDir = os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))).replace("\\", "/")
 argList = 0
@@ -48,7 +49,14 @@ def getRepo(user, repo):
         url = "https://github.com/" + user + "/" + repo + "/archive/" + branch + ".tar.gz"
         print "Fetching " + url
         response = urllib2.urlopen(url)
-        tar = tarfile.open(mode="r|gz", fileobj=response.fp)
+        tmpFile = BytesIO()
+        while ( True ):
+            chunk = response.read(16384)
+            if ( not chunk ):
+                break;
+            tmpFile.write(chunk)
+        tmpFile.seek(0)
+        tar = tarfile.open(mode="r:gz", fileobj=tmpFile)
         tar.extractall()
         tar.close()
         os.rename(repo + "-" + branch, repo)
@@ -252,29 +260,38 @@ def appBuild(template, board):
         else:
             raise HDLException("The " + boardDir + "/board.cfg describes something which is not recognisable as a Xilinx FPGA or CPLD")
 
-        # Generate iMPACT batch script from board's template file
-        f = open(boardDir + "/board.batch", "r")
-        batch = f.read()
-        f.close()
-
-        # Infer XILINX variable from system PATH
-        xilinx = None
-        for i in os.environ['PATH'].split(os.pathsep):
-            xstName = "xst.exe" if ( os.name == 'nt' ) else "xst"
-            if ( os.path.exists(i + os.path.sep + xstName) ):
-                xilinx = i[:i.rfind("ISE")] + "ISE"
-                break
-        if ( xilinx == None ):
-            raise HDLException("Cannot infer Xilinx root from system PATH")
-
-        batch = batch.replace("${XILINX}", xilinx)
-        f = open("temp.batch", "w")
-        f.write("setPreference -pref KeepSVF:True\n")
-        f.write(batch)
-        f.close()
-        if ( os.system("impact -batch temp.batch") ):
-            raise HDLException("The impact process failed")
-        os.remove("temp.batch")
+        if ( argList.p ):
+            # Infer XILINX variable from system PATH
+            xilinx = None
+            for i in os.environ['PATH'].split(os.pathsep):
+                xstName = "xst.exe" if ( os.name == 'nt' ) else "xst"
+                if ( os.path.exists(i + os.path.sep + xstName) ):
+                    xilinx = i[:i.rfind("ISE")] + "ISE"
+                    break
+            if ( xilinx == None ):
+                raise HDLException("Cannot infer Xilinx root from system PATH")
+        
+            genRules = boardTree["genrules"] if ( "genrules" in boardTree ) else dict()
+            for batch in argList.p:
+                # Get list of prerequisite commands
+                cmdList = genRules[batch] if ( batch in genRules ) else []
+        
+                # Generate iMPACT batch script from board's template file
+                f = open(boardDir + "/" + batch + ".batch", "r")
+                batch = f.read()
+                f.close()
+        
+                batch = batch.replace("${XILINX}", xilinx)
+                f = open("temp.batch", "w")
+                f.write("setPreference -pref KeepSVF:True\n")
+                f.write(batch)
+                f.close()
+                for i in cmdList:
+                    if ( os.system(i) ):
+                        raise HDLException("The impact process failed")
+                if ( os.system("impact -batch temp.batch") ):
+                    raise HDLException("The impact process failed")
+                os.remove("temp.batch")
     elif ( vendor == "altera" ):
         # Copy board.qsf & board.sdc over
         shutil.copyfile(boardDir + "/board.qsf", "top_level.qsf")
@@ -301,6 +318,14 @@ def appBuild(template, board):
             raise HDLException("The quartus_fit process failed")
         if ( os.system("quartus_asm --read_settings_files=on --write_settings_files=off top_level -c top_level") ):
             raise HDLException("The quartus_asm process failed")
+        if ( argList.p ):
+            genRules = boardTree["genrules"] if ( "genrules" in boardTree ) else dict()
+            for batch in argList.p:
+                # Get list of prerequisite commands
+                cmdList = genRules[batch] if ( batch in genRules ) else []
+                for i in cmdList:
+                    if ( os.system(i) ):
+                        raise HDLException("The generation rule failed")
 
 # Work out whether a build is needed by comparing datestamps
 def isBuildNeeded(target, hdls):
@@ -355,7 +380,7 @@ def doValidate(tool):
             f.write("-ifmt mixed\n")
             f.write("-ofn " + topLevel + "\n")
             f.write("-ofmt NGC\n")
-            f.write("-p xc6slx9-2-tqg144\n")
+            f.write("-p xc6slx45-2-fgg676\n")
             f.write("-top " + topLevel + "\n")
             f.write("-opt_mode Speed\n")
             f.write("-opt_level 1\n")
@@ -465,11 +490,11 @@ def foreachTestbench(func):
 
 # Clean the directory
 def doClean():
-    for i in ["*.bak", "*.bgn", "*.bin", "*.bit", "*.bld", "*.cmd", "*.cmd_log", "*.csv", "*.csvf",
+    for i in ["*.bak", "*.bgn", "*.bin", "*.bit", "*.bld", "*.cfi", "*.cmd", "*.cmd_log", "*.csv", "*.csvf",
               "*.done", "*.dpf", "*.drc", "*.edif", "*.err", "*.gise", "*.gyd", "*.html", "*.ise", "*.jdi", "*.jed",
-              "*.log", "*.lso", "*.map", "*.mfd", "*.mrp", "*.ncd", "*.ngc", "*.ngd", "*.ngm", "*.ngr",
-              "*.ntrc_log", "*.pad", "*.par", "*.pcf", "*.pin", "*.pnx", "*.pof", "*.prj", "*.ptwx",
-              "*.qpf", "*.qsf", "*.rpt", "*.sdc", "*.smsg", "*.sof", "*.srf", "*.stx",
+              "*.log", "*.lso", "*.map", "*.mcs", "*.mfd", "*.mrp", "*.ncd", "*.ngc", "*.ngd", "*.ngm", "*.ngr",
+              "*.ntrc_log", "*.pad", "*.par", "*.pcf", "*.pin", "*.pnx", "*.pof", "*.prj", "*.prm", "*.ptwx",
+              "*.qpf", "*.qsf", "*.rbf", "*.rpt", "*.sdc", "*.smsg", "*.sof", "*.srf", "*.stx",
               "*.summary", "*.svf", "*.syr", "*.tspec", "*.twr", "*.twr", "*.twx", "*.txt", "*.unroutes",
               "*.vm6", "*.xml", "*.xpi", "*.xrpt", "*.xsvf", "*.xwbt"]:
         wildcardDelete(i)
@@ -517,7 +542,10 @@ def topBuild():
                 raise HDLException("The ghdl second stage build failed")
             print "Moving " + tbTopLevel + " to simulation directory"
             shutil.move(tbTopLevel, "simulation")
-            cmd = "./simulation/" + tbTopLevel + " --stop-time=41280ns --wave=simulation/" + tbTopLevel + ".ghw"
+            stopTime = "41280ns"
+            if ( "stopTime" in tbTree ):
+                stopTime = tbTree["stopTime"]
+            cmd = "./simulation/" + tbTopLevel + " --stop-time=" + stopTime + " --wave=simulation/" + tbTopLevel + ".ghw"
             #print cmd
             if ( os.system(cmd) ):
                 raise HDLException("The ghdl simulation failed")
@@ -548,7 +576,10 @@ def topBuild():
                 if ( i == "---" ):
                     f.write("gtkwave::/Edit/Insert_Blank\n")
                 else:
-                    f.write("gtkwave::addSignalsFromList " + i + "\n")
+                    f.write(
+                        "gtkwave::addSignalsFromList " +
+                        i.replace("[", "\\[").replace("]", "\\]") +
+                        "\n")
             zoomFactor = "26"
             if ( "zoomFactor" in tbTree ):
                 zoomFactor = tbTree["zoomFactor"]
@@ -676,29 +707,38 @@ def alteraBlock(subdir):
     f.write("gen: qmegawiz -silent module=" + lpmType + " -f:" + batchName + " " + hdlName + "\n")
     f.close()
 
-def doZero():
+def doZero(subdir):
+    if ( not(os.path.isdir(subdir)) ):
+        return
+    cwd = os.getcwd()
+    os.chdir(subdir)
     batchList = glob.glob("*.batch")
-    if ( len(batchList) != 1 ):
-        raise HDLException("Refusing to zero a directory which does not contain exactly one .batch file")
-    allList = sorted(glob.glob("*"))
-    print "Current directory contains:"
-    for i in allList:
-        if ( i.endswith(".batch") or i == "hdlmake.cfg" ):
-            print "  " + i + " *"
+    print "Zeroing " + subdir + ":"
+    if ( len(batchList) == 1 ):
+        allList = sorted(glob.glob("*"))
+        workNeeded = False
+        for i in allList:
+            if ( i.endswith(".batch") or i == "hdlmake.cfg" ):
+                print "  " + i + " *"
+            else:
+                workNeeded = True;
+                print "  " + i
+        if ( workNeeded ):
+            yn = "Y" if argList.f else raw_input('\nThis operation will erase everything apart from *.batch and\nhdlmake.cfg. Are you sure you want to proceed? ')
+            if ( yn.upper() == 'Y' ):
+                files = glob.glob("*")
+                for i in files:
+                    if ( not i.endswith(".batch") and i != "hdlmake.cfg" ):
+                        if ( os.path.isdir(i) ):
+                            shutil.rmtree(i)
+                        else:
+                            os.remove(i)
         else:
-            print "  " + i
-    yn = "Y" if argList.f else raw_input('\nThis operation will erase everything apart from *.batch and\nhdlmake.cfg. Are you sure you want to proceed? ')
-    if ( yn.upper() == 'Y' ):
-        files = glob.glob("*")
-        for i in files:
-            if ( not i.endswith(".batch") and i != "hdlmake.cfg" ):
-                if ( os.path.isdir(i) ):
-                    shutil.rmtree(i)
-                else:
-                    os.remove(i)
+            print "  Nothing to do here!"
     else:
-        raise HDLException("Batch zero operation aborted")
-
+        print "  Refusing to zero " + subdir + " because it doesn't contain exactly one .batch file"
+    os.chdir(cwd)
+    
 # Main function if we're not loaded as a module
 if __name__ == "__main__":
     print "MakeStuff HDL Builder (C) 2012-2013 Chris McClelland\n"
@@ -708,11 +748,12 @@ if __name__ == "__main__":
     parser.add_argument('-b', action="store", nargs=1, metavar="<board>", help="the board to build for")
     parser.add_argument('-a', action="store", nargs=1, metavar="<subdir>", help="make the named subdir and launch qmegawiz")
     parser.add_argument('-x', action="store", nargs=1, metavar="<subdir>", help="make the named subdir and launch coregen")
-    parser.add_argument('-z', action="store_true", default=False, help="clean the current coregen/megawiz directory and exit")
+    parser.add_argument('-z', action="store", nargs="*", metavar="<subdir>", help="clean the specified coregen/megawiz directories and exit")
     parser.add_argument('-v', action="store", nargs=1, metavar="<x|a>", help="validate with either Xilinx or Altera")
     parser.add_argument('-w', action="store_true", default=False, help="display the simulation waves")
     parser.add_argument('-i', action="store", nargs=1, metavar="<subdir>", help="copy files locally in preparation for an IDE build")
     parser.add_argument('-g', action="store", nargs=1, metavar="<user/repo>", help="fetch the specified GitHub repo")
+    parser.add_argument('-p', action="store", nargs="*", metavar="<rule>", help="generate the specified programming file(s)")
     parser.add_argument('-f', action="store_true", default=False, help="avoid confirmation when zeroing: DANGEROUS")
     argList = parser.parse_args()
 
@@ -725,7 +766,8 @@ if __name__ == "__main__":
         if ( argList.c ):
             doClean()
         elif ( argList.z ):
-            doZero()
+            for d in argList.z:
+                doZero(d)
         elif ( argList.g ):
             (user, repo) = argList.g[0].split("/")
             getRepo(user, repo)
