@@ -224,7 +224,15 @@ def appBuild(template, board):
 
         # Synthesis
         mkdir("xst/projnav.tmp")
-        if ( os.system("xst -intstyle ise -ifn " + boardDir + "/board.xst -ofn top_level.syr") ):
+
+        # Deal with command-line generics
+        shutil.copyfile(boardDir + "/board.xst", "xst/board.xst")
+        if ( argList.s ):
+            with open("xst/board.xst", "a") as xstFile:
+                xstFile.write("-generics {")
+                xstFile.write(" ".join(argList.s))
+                xstFile.write("}\n")
+        if ( os.system("xst -intstyle ise -ifn xst/board.xst -ofn top_level.syr") ):
             raise HDLException("The xst process failed")
 
         # Get Xilinx-specific settings from board.cfg
@@ -754,6 +762,7 @@ if __name__ == "__main__":
     parser.add_argument('-i', action="store", nargs=1, metavar="<subdir>", help="copy files locally in preparation for an IDE build")
     parser.add_argument('-g', action="store", nargs=1, metavar="<user/repo>", help="fetch the specified GitHub repo")
     parser.add_argument('-p', action="store", nargs="*", metavar="<rule>", help="generate the specified programming file(s)")
+    parser.add_argument('-s', action="store", nargs="1", metavar="<rule>", help="set the supplied top-level generics")
     parser.add_argument('-f', action="store_true", default=False, help="avoid confirmation when zeroing: DANGEROUS")
     argList = parser.parse_args()
 
