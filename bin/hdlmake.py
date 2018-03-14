@@ -22,9 +22,12 @@ import shutil
 import glob
 import re
 import filecmp
+import ssl
 import urllib2
 import tarfile
 from io import BytesIO
+
+context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
 
 topDir = os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))).replace("\\", "/")
 argList = 0
@@ -48,7 +51,7 @@ def getRepo(user, repo):
     if ( not os.path.exists(repo) ):
         url = "https://github.com/" + user + "/" + repo + "/archive/" + branch + ".tar.gz"
         print "Fetching " + url
-        response = urllib2.urlopen(url)
+        response = urllib2.urlopen(url, context = context)
         tmpFile = BytesIO()
         while ( True ):
             chunk = response.read(16384)
